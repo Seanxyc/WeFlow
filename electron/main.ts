@@ -852,9 +852,9 @@ function registerIpcHandlers() {
   })
 
   // 视频相关
-  ipcMain.handle('video:getVideoInfo', async (_, videoMd5: string, sessionId?: string) => {
+  ipcMain.handle('video:getVideoInfo', async (_, videoMd5: string) => {
     try {
-      const result = await videoService.getVideoInfo(videoMd5, sessionId)
+      const result = await videoService.getVideoInfo(videoMd5)
       return { success: true, ...result }
     } catch (e) {
       return { success: false, error: String(e), exists: false }

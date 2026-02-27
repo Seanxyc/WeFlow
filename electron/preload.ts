@@ -194,12 +194,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }
   },
 
-  // 视频
-  video: {
-    getVideoInfo: (videoMd5: string, sessionId?: string) => ipcRenderer.invoke('video:getVideoInfo', videoMd5, sessionId),
-    parseVideoMd5: (content: string) => ipcRenderer.invoke('video:parseVideoMd5', content)
-  },
-
+    // 视频
+    video: {
+      getVideoInfo: (videoMd5: string) => ipcRenderer.invoke('video:getVideoInfo', videoMd5),
+      parseVideoMd5: (content: string) => ipcRenderer.invoke('video:parseVideoMd5', content)
+    },
   // 数据分析
   analytics: {
     getOverallStatistics: (force?: boolean) => ipcRenderer.invoke('analytics:getOverallStatistics', force),
