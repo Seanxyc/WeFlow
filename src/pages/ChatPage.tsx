@@ -324,6 +324,7 @@ function ChatPage(_props: ChatPageProps) {
 
   // 消息右键菜单
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, message: Message } | null>(null)
+  const [showMessageInfo, setShowMessageInfo] = useState<Message | null>(null)
   const [editingMessage, setEditingMessage] = useState<{ message: Message, content: string } | null>(null)
 
   // 多选模式
@@ -2735,8 +2736,140 @@ function ChatPage(_props: ChatPageProps) {
               <Trash2 size={16} />
               <span>删除消息</span>
             </div>
+            <div className="menu-item" onClick={() => { setShowMessageInfo(contextMenu.message); setContextMenu(null) }}>
+              <Info size={16} />
+              <span>查看消息信息</span>
+            </div>
           </div>
         </>,
+        document.body
+      )}
+
+      {/* 消息信息弹窗 */}
+      {showMessageInfo && createPortal(
+        <div className="message-info-overlay" onClick={() => setShowMessageInfo(null)}>
+          <div className="message-info-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="detail-header">
+              <h4>消息详情</h4>
+              <button className="close-btn" onClick={() => setShowMessageInfo(null)}>
+                <X size={16} />
+              </button>
+            </div>
+            <div className="detail-content">
+              <div className="detail-section">
+                <div className="detail-item">
+                  <Hash size={14} />
+                  <span className="label">Local ID</span>
+                  <span className="value">{showMessageInfo.localId}</span>
+                  <button className="copy-btn" title="复制" onClick={() => handleCopyField(String(showMessageInfo.localId), 'msgLocalId')}>
+                    {copiedField === 'msgLocalId' ? <Check size={12} /> : <Copy size={12} />}
+                  </button>
+                </div>
+                <div className="detail-item">
+                  <Hash size={14} />
+                  <span className="label">Server ID</span>
+                  <span className="value">{showMessageInfo.serverId}</span>
+                </div>
+                <div className="detail-item">
+                  <span className="label">消息类型</span>
+                  <span className="value highlight">{showMessageInfo.localType}</span>
+                </div>
+                <div className="detail-item">
+                  <span className="label">发送者</span>
+                  <span className="value">{showMessageInfo.senderUsername || '-'}</span>
+                  {showMessageInfo.senderUsername && (
+                    <button className="copy-btn" title="复制" onClick={() => handleCopyField(showMessageInfo.senderUsername!, 'msgSender')}>
+                      {copiedField === 'msgSender' ? <Check size={12} /> : <Copy size={12} />}
+                    </button>
+                  )}
+                </div>
+                <div className="detail-item">
+                  <Calendar size={14} />
+                  <span className="label">创建时间</span>
+                  <span className="value">{new Date(showMessageInfo.createTime * 1000).toLocaleString()}</span>
+                </div>
+                <div className="detail-item">
+                  <span className="label">发送状态</span>
+                  <span className="value">{showMessageInfo.isSend === 1 ? '发送' : '接收'}</span>
+                </div>
+              </div>
+
+              {(showMessageInfo.imageMd5 || showMessageInfo.videoMd5 || showMessageInfo.voiceDurationSeconds != null) && (
+                <div className="detail-section">
+                  <div className="section-title">
+                    <ImageIcon size={14} />
+                    <span>媒体信息</span>
+                  </div>
+                  {showMessageInfo.imageMd5 && (
+                    <div className="detail-item">
+                      <span className="label">Image MD5</span>
+                      <span className="value mono">{showMessageInfo.imageMd5}</span>
+                      <button className="copy-btn" title="复制" onClick={() => handleCopyField(showMessageInfo.imageMd5!, 'imgMd5')}>
+                        {copiedField === 'imgMd5' ? <Check size={12} /> : <Copy size={12} />}
+                      </button>
+                    </div>
+                  )}
+                  {showMessageInfo.imageDatName && (
+                    <div className="detail-item">
+                      <span className="label">DAT 文件</span>
+                      <span className="value mono">{showMessageInfo.imageDatName}</span>
+                    </div>
+                  )}
+                  {showMessageInfo.videoMd5 && (
+                    <div className="detail-item">
+                      <span className="label">Video MD5</span>
+                      <span className="value mono">{showMessageInfo.videoMd5}</span>
+                      <button className="copy-btn" title="复制" onClick={() => handleCopyField(showMessageInfo.videoMd5!, 'vidMd5')}>
+                        {copiedField === 'vidMd5' ? <Check size={12} /> : <Copy size={12} />}
+                      </button>
+                    </div>
+                  )}
+                  {showMessageInfo.voiceDurationSeconds != null && (
+                    <div className="detail-item">
+                      <Mic size={14} />
+                      <span className="label">语音时长</span>
+                      <span className="value">{showMessageInfo.voiceDurationSeconds}秒</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {(showMessageInfo.emojiMd5 || showMessageInfo.emojiCdnUrl) && (
+                <div className="detail-section">
+                  <div className="section-title">
+                    <span>表情包信息</span>
+                  </div>
+                  {showMessageInfo.emojiMd5 && (
+                    <div className="detail-item">
+                      <span className="label">MD5</span>
+                      <span className="value mono">{showMessageInfo.emojiMd5}</span>
+                    </div>
+                  )}
+                  {showMessageInfo.emojiCdnUrl && (
+                    <div className="detail-item">
+                      <span className="label">CDN URL</span>
+                      <span className="value mono">{showMessageInfo.emojiCdnUrl}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {showMessageInfo.localType !== 1 && (showMessageInfo.rawContent || showMessageInfo.content) && (
+                <div className="detail-section">
+                  <div className="section-title">
+                    <span>原始消息内容</span>
+                    <button className="copy-btn" title="复制" onClick={() => handleCopyField(showMessageInfo.rawContent || showMessageInfo.content || '', 'rawContent')}>
+                      {copiedField === 'rawContent' ? <Check size={12} /> : <Copy size={12} />}
+                    </button>
+                  </div>
+                  <div className="raw-content-box">
+                    <pre>{showMessageInfo.rawContent || showMessageInfo.content}</pre>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>,
         document.body
       )}
 
