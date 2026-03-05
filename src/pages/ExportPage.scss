@@ -1199,7 +1199,6 @@
     }
   }
 
-  .selection-toggle-btn,
   .selection-clear-btn {
     border: 1px solid var(--border-color);
     border-radius: 8px;
@@ -1218,13 +1217,6 @@
       opacity: 0.65;
       cursor: not-allowed;
     }
-  }
-
-  .selection-toggle-btn {
-    padding: 4px 8px;
-    font-size: 11px;
-    line-height: 1.2;
-    white-space: nowrap;
   }
 
   .selection-export-btn {
@@ -2703,11 +2695,6 @@
 
   .table-wrap .contacts-list-header-main {
     gap: 6px;
-  }
-
-  .table-wrap .selection-toggle-btn {
-    padding: 3px 7px;
-    font-size: 10px;
   }
 
   .table-wrap .contacts-list-header-actions {

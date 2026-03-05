@@ -4174,14 +4174,6 @@ function ExportPage() {
                     </button>
                   </span>
                   <span className="contacts-list-header-main">
-                    <button
-                      className="selection-toggle-btn"
-                      type="button"
-                      onClick={toggleSelectAllVisible}
-                      disabled={visibleSelectableCount === 0}
-                    >
-                      {isAllVisibleSelected ? '取消全选当前筛选' : '全选当前筛选'}
-                    </button>
                     <span className="contacts-list-header-main-label">联系人（头像/名称/微信号）</span>
                   </span>
                   <span className="contacts-list-header-count">总消息数</span>
