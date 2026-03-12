@@ -48,6 +48,38 @@ export class VoiceTranscribeService {
   private recognizer: OfflineRecognizer | null = null
   private isInitializing = false
 
+  private buildTranscribeWorkerEnv(): NodeJS.ProcessEnv {
+    const env: NodeJS.ProcessEnv = { ...process.env }
+    const platform = process.platform === 'win32' ? 'win' : process.platform
+    const platformPkg = `sherpa-onnx-${platform}-${process.arch}`
+    const candidates = [
+      join(__dirname, '..', 'node_modules', platformPkg),
+      join(__dirname, 'node_modules', platformPkg),
+      join(process.cwd(), 'node_modules', platformPkg),
+      process.resourcesPath ? join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', platformPkg) : ''
+    ].filter((item): item is string => Boolean(item) && existsSync(item))
+
+    if (process.platform === 'darwin') {
+      const key = 'DYLD_LIBRARY_PATH'
+      const existing = env[key] || ''
+      const merged = [...candidates, ...existing.split(':').filter(Boolean)]
+      env[key] = Array.from(new Set(merged)).join(':')
+      if (candidates.length === 0) {
+        console.warn(`[VoiceTranscribe] 未找到 ${platformPkg} 目录，可能导致语音引擎加载失败`)
+      }
+    } else if (process.platform === 'linux') {
+      const key = 'LD_LIBRARY_PATH'
+      const existing = env[key] || ''
+      const merged = [...candidates, ...existing.split(':').filter(Boolean)]
+      env[key] = Array.from(new Set(merged)).join(':')
+      if (candidates.length === 0) {
+        console.warn(`[VoiceTranscribe] 未找到 ${platformPkg} 目录，可能导致语音引擎加载失败`)
+      }
+    }
+
+    return env
+  }
+
   private resolveModelDir(): string {
     const configured = this.configService.get('whisperModelDir') as string | undefined
     if (configured) return configured
@@ -206,17 +238,20 @@ export class VoiceTranscribeService {
           }
         }
 
-        const { Worker } = require('worker_threads')
+        const { fork } = require('child_process')
         const workerPath = join(__dirname, 'transcribeWorker.js')
 
-        const worker = new Worker(workerPath, {
-          workerData: {
-            modelPath,
-            tokensPath,
-            wavData,
-            sampleRate: 16000,
-            languages: supportedLanguages
-          }
+        const worker = fork(workerPath, [], {
+          env: this.buildTranscribeWorkerEnv(),
+          stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+          serialization: 'advanced'
+        })
+        worker.send({
+          modelPath,
+          tokensPath,
+          wavData,
+          sampleRate: 16000,
+          languages: supportedLanguages
         })
 
         let finalTranscript = ''
@@ -227,11 +262,13 @@ export class VoiceTranscribeService {
           } else if (msg.type === 'final') {
             finalTranscript = msg.text
             resolve({ success: true, transcript: finalTranscript })
-            worker.terminate()
+            worker.disconnect()
+            worker.kill()
           } else if (msg.type === 'error') {
             console.error('[VoiceTranscribe] Worker 错误:', msg.error)
             resolve({ success: false, error: msg.error })
-            worker.terminate()
+            worker.disconnect()
+            worker.kill()
           }
         })
 

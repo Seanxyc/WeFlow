@@ -67,7 +67,10 @@ class CloudControlService {
     }
 
     if (platform === 'darwin') {
-      return `macOS ${os.release()}`
+      // `os.release()` returns Darwin kernel version (e.g. 25.3.0),
+      // while cloud reporting expects the macOS product version (e.g. 26.3).
+      const macVersion = typeof process.getSystemVersion === 'function' ? process.getSystemVersion() : os.release()
+      return `macOS ${macVersion}`
     }
 
     return platform
@@ -91,5 +94,4 @@ class CloudControlService {
 }
 
 export const cloudControlService = new CloudControlService()
-
 

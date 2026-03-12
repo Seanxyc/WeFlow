@@ -715,6 +715,68 @@ export class KeyService {
     return wxid.substring(0, second)
   }
 
+  private deriveImageKeys(code: number, wxid: string): { xorKey: number; aesKey: string } {
+    const cleanedWxid = this.cleanWxid(wxid)
+    const xorKey = code & 0xFF
+    const dataToHash = code.toString() + cleanedWxid
+    const md5Full = crypto.createHash('md5').update(dataToHash).digest('hex')
+    const aesKey = md5Full.substring(0, 16)
+    return { xorKey, aesKey }
+  }
+
+  private verifyDerivedAesKey(aesKey: string, ciphertext: Buffer): boolean {
+    try {
+      if (!aesKey || aesKey.length < 16 || ciphertext.length !== 16) return false
+      const decipher = crypto.createDecipheriv('aes-128-ecb', Buffer.from(aesKey, 'ascii').subarray(0, 16), null)
+      decipher.setAutoPadding(false)
+      const dec = Buffer.concat([decipher.update(ciphertext), decipher.final()])
+      if (dec[0] === 0xFF && dec[1] === 0xD8 && dec[2] === 0xFF) return true
+      if (dec[0] === 0x89 && dec[1] === 0x50 && dec[2] === 0x4E && dec[3] === 0x47) return true
+      if (dec[0] === 0x52 && dec[1] === 0x49 && dec[2] === 0x46 && dec[3] === 0x46) return true
+      if (dec[0] === 0x77 && dec[1] === 0x78 && dec[2] === 0x67 && dec[3] === 0x66) return true
+      if (dec[0] === 0x47 && dec[1] === 0x49 && dec[2] === 0x46) return true
+      return false
+    } catch {
+      return false
+    }
+  }
+
+  private async collectWxidCandidates(manualDir?: string, wxidParam?: string): Promise<string[]> {
+    const candidates: string[] = []
+    const pushUnique = (value: string) => {
+      const v = String(value || '').trim()
+      if (!v || candidates.includes(v)) return
+      candidates.push(v)
+    }
+
+    if (wxidParam && wxidParam.startsWith('wxid_')) pushUnique(wxidParam)
+
+    if (manualDir) {
+      const normalized = manualDir.replace(/[\\/]+$/, '')
+      const dirName = normalized.split(/[\\/]/).pop() ?? ''
+      if (dirName.startsWith('wxid_')) pushUnique(dirName)
+
+      const marker = normalized.match(/[\\/]xwechat_files/i) || normalized.match(/[\\/]WeChat Files/i)
+      if (marker) {
+        const root = normalized.slice(0, marker.index! + marker[0].length)
+        try {
+          const { readdirSync, statSync } = await import('fs')
+          const { join } = await import('path')
+          for (const entry of readdirSync(root)) {
+            if (!entry.startsWith('wxid_')) continue
+            const full = join(root, entry)
+            try {
+              if (statSync(full).isDirectory()) pushUnique(entry)
+            } catch { }
+          }
+        } catch { }
+      }
+    }
+
+    pushUnique('unknown')
+    return candidates
+  }
+
   async autoGetImageKey(
       manualDir?: string,
       onProgress?: (message: string) => void,
@@ -750,52 +812,34 @@ export class KeyService {
     const codes: number[] = accounts[0].keys.map((k: any) => k.code)
     console.log('[ImageKey] codes:', codes, 'DLL wxids:', accounts.map((a: any) => a.wxid))
 
-    // 优先级: 1. 直接传入的wxidParam 2. 从manualDir提取 3. DLL返回的wxid（可能是unknown）
-    let targetWxid = ''
-    
-    // 方案1: 直接使用传入的wxidParam（最优先）
-    if (wxidParam && wxidParam.startsWith('wxid_')) {
-      targetWxid = wxidParam
-      console.log('[ImageKey] 使用直接传入的 wxid:', targetWxid)
+    const wxidCandidates = await this.collectWxidCandidates(manualDir, wxidParam)
+    let verifyCiphertext: Buffer | null = null
+    if (manualDir && existsSync(manualDir)) {
+      const template = await this._findTemplateData(manualDir, 32)
+      verifyCiphertext = template.ciphertext
     }
-    
-    // 方案2: 从 manualDir 提取前端已配置好的正确 wxid
-    // 格式: "D:\weixin\xwechat_files\wxid_xxx_1234" → "wxid_xxx_1234"
-    if (!targetWxid && manualDir) {
-      const dirName = manualDir.replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? ''
-      if (dirName.startsWith('wxid_')) {
-        targetWxid = dirName
-        console.log('[ImageKey] 从 manualDir 提取 wxid:', targetWxid)
+
+    if (verifyCiphertext) {
+      onProgress?.(`正在校验候选 wxid（${wxidCandidates.length} 个）...`)
+      for (const candidateWxid of wxidCandidates) {
+        for (const code of codes) {
+          const { xorKey, aesKey } = this.deriveImageKeys(code, candidateWxid)
+          if (!this.verifyDerivedAesKey(aesKey, verifyCiphertext)) continue
+          onProgress?.(`密钥获取成功 (wxid: ${candidateWxid}, code: ${code})`)
+          console.log('[ImageKey] 校验命中: wxid=', candidateWxid, 'code=', code)
+          return { success: true, xorKey, aesKey }
+        }
       }
+      return { success: false, error: '缓存 code 与当前账号 wxid 未匹配，请确认账号目录后重试，或使用内存扫描' }
     }
 
-    // 方案3: 回退到 DLL 发现的第一个（可能是 unknown）
-    if (!targetWxid) {
-      targetWxid = accounts[0].wxid
-      console.log('[ImageKey] 无法获取 wxid，使用 DLL 发现的:', targetWxid)
-    }
-
-    // CleanWxid: 截断到第二个下划线，与 xkey 算法一致
-    const cleanedWxid = this.cleanWxid(targetWxid)
-    console.log('[ImageKey] wxid:', targetWxid, '→ cleaned:', cleanedWxid)
-
-    // 用 cleanedWxid + code 本地计算密钥
-    // xorKey = code & 0xFF
-    // aesKey = MD5(code.toString() + cleanedWxid).substring(0, 16)
-    const code = codes[0]
-    const xorKey = code & 0xFF
-    const dataToHash = code.toString() + cleanedWxid
-    const md5Full = crypto.createHash('md5').update(dataToHash).digest('hex')
-    const aesKey = md5Full.substring(0, 16)
-
-    onProgress?.(`密钥获取成功 (wxid: ${targetWxid}, code: ${code})`)
-    console.log('[ImageKey] 计算结果: xorKey=', xorKey, 'aesKey=', aesKey)
-
-    return {
-      success: true,
-      xorKey,
-      aesKey
-    }
+    // 无模板密文可验真时回退旧策略
+    const fallbackWxid = wxidCandidates[0] || accounts[0].wxid || 'unknown'
+    const fallbackCode = codes[0]
+    const { xorKey, aesKey } = this.deriveImageKeys(fallbackCode, fallbackWxid)
+    onProgress?.(`密钥获取成功 (wxid: ${fallbackWxid}, code: ${fallbackCode})`)
+    console.log('[ImageKey] 回退计算: wxid=', fallbackWxid, 'code=', fallbackCode)
+    return { success: true, xorKey, aesKey }
   }
 
   // --- 内存扫描备选方案（融合 Dart+Python 优点）---

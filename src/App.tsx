@@ -138,10 +138,6 @@ function App() {
       const effectiveMode = mode === 'system' ? (systemDark ?? mq.matches ? 'dark' : 'light') : mode
       document.documentElement.setAttribute('data-theme', currentTheme)
       document.documentElement.setAttribute('data-mode', effectiveMode)
-      const symbolColor = effectiveMode === 'dark' ? '#ffffff' : '#1a1a1a'
-      if (!isOnboardingWindow && !isNotificationWindow) {
-        window.electronAPI.window.setTitleBarOverlay({ symbolColor })
-      }
     }
 
     applyMode(themeMode)

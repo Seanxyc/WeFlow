@@ -3,6 +3,7 @@
   background: var(--bg-secondary);
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding-left: 16px;
   padding-right: 16px;
   border-bottom: 1px solid var(--border-color);
@@ -55,5 +56,37 @@
   &:hover {
     background: var(--bg-tertiary);
     color: var(--text-primary);
+  }
+}
+
+.title-window-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  -webkit-app-region: no-drag;
+}
+
+.title-window-control-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-tertiary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+
+  &:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+
+  &.is-close:hover {
+    background: #e5484d;
+    color: #fff;
   }
 }

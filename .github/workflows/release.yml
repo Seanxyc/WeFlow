@@ -9,6 +9,58 @@ permissions:
   contents: write
 
 jobs:
+  release-mac-arm64:
+    runs-on: macos-14
+
+    steps:
+      - name: Check out git repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12
+          cache: "npm"
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Sync version with tag
+        shell: bash
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          echo "Syncing package.json version to $VERSION"
+          npm version $VERSION --no-git-tag-version --allow-same-version
+
+      - name: Build Frontend & Type Check
+        run: |
+          npx tsc
+          npx vite build
+
+      - name: Package and Publish macOS arm64 (unsigned DMG)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: |
+          npx electron-builder --mac dmg --arm64 --publish always
+
+      - name: Update Release Notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          cat <<EOF > release_notes.md
+          ## 更新日志
+          修复了一些已知问题
+
+          ## 查看更多日志/获取最新动态
+          [点击加入 Telegram 频道](https://t.me/weflow_cc)
+          EOF
+
+          gh release edit "$GITHUB_REF_NAME" --notes-file release_notes.md
+
   release:
     runs-on: windows-latest
 

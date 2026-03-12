@@ -11,6 +11,8 @@ export interface ElectronAPI {
   window: {
     minimize: () => void
     maximize: () => void
+    isMaximized: () => Promise<boolean>
+    onMaximizeStateChanged: (callback: (isMaximized: boolean) => void) => () => void
     close: () => void
     openAgreementWindow: () => Promise<boolean>
     completeOnboarding: () => Promise<boolean>

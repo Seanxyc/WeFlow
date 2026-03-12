@@ -235,6 +235,23 @@ const isYearsLoadCanceled = (taskId: string): boolean => {
   return task?.canceled === true
 }
 
+const setupCustomTitleBarWindow = (win: BrowserWindow): void => {
+  if (process.platform === 'darwin') {
+    win.setWindowButtonVisibility(false)
+  }
+
+  const emitMaximizeState = () => {
+    if (win.isDestroyed()) return
+    win.webContents.send('window:maximizeStateChanged', win.isMaximized() || win.isFullScreen())
+  }
+
+  win.on('maximize', emitMaximizeState)
+  win.on('unmaximize', emitMaximizeState)
+  win.on('enter-full-screen', emitMaximizeState)
+  win.on('leave-full-screen', emitMaximizeState)
+  win.webContents.on('did-finish-load', emitMaximizeState)
+}
+
 function createWindow(options: { autoShow?: boolean } = {}) {
   // 获取图标路径 - 打包后在 resources 目录
   const { autoShow = true } = options
@@ -256,13 +273,10 @@ function createWindow(options: { autoShow?: boolean } = {}) {
       webSecurity: false // Allow loading local files (video playback)
     },
     titleBarStyle: 'hidden',
-    titleBarOverlay: {
-      color: '#00000000',
-      symbolColor: '#1a1a1a',
-      height: 40
-    },
+    titleBarOverlay: false,
     show: false
   })
+  setupCustomTitleBarWindow(win)
 
   // 窗口准备好后显示
   // Splash 模式下不在这里 show，由启动流程统一控制
@@ -710,15 +724,12 @@ function createChatHistoryWindow(sessionId: string, messageId: number) {
       nodeIntegration: false
     },
     titleBarStyle: 'hidden',
-    titleBarOverlay: {
-      color: '#00000000',
-      symbolColor: isDark ? '#ffffff' : '#1a1a1a',
-      height: 32
-    },
+    titleBarOverlay: false,
     show: false,
     backgroundColor: isDark ? '#1A1A1A' : '#F0F0F0',
     autoHideMenuBar: true
   })
+  setupCustomTitleBarWindow(win)
 
   win.once('ready-to-show', () => {
     win.show()
@@ -1101,6 +1112,11 @@ function registerIpcHandlers() {
     } else {
       win?.maximize()
     }
+  })
+
+  ipcMain.handle('window:isMaximized', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    return Boolean(win?.isMaximized() || win?.isFullScreen())
   })
 
   ipcMain.on('window:close', (event) => {

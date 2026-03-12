@@ -129,6 +129,8 @@
     "asarUnpack": [
       "node_modules/silk-wasm/**/*",
       "node_modules/sherpa-onnx-node/**/*",
+      "node_modules/sherpa-onnx-*/*",
+      "node_modules/sherpa-onnx-*/**/*",
       "node_modules/ffmpeg-static/**/*"
     ],
     "extraFiles": [

@@ -1,11 +1,54 @@
 ﻿import { parentPort, workerData } from 'worker_threads'
+import { existsSync } from 'fs'
+import { join } from 'path'
 
 interface WorkerParams {
     modelPath: string
     tokensPath: string
-    wavData: Buffer
+    wavData: Buffer | Uint8Array | { type: 'Buffer'; data: number[] }
     sampleRate: number
     languages?: string[]
+}
+
+function appendLibrarySearchPath(libDir: string): void {
+    if (!existsSync(libDir)) return
+
+    if (process.platform === 'darwin') {
+        const current = process.env.DYLD_LIBRARY_PATH || ''
+        const paths = current.split(':').filter(Boolean)
+        if (!paths.includes(libDir)) {
+            process.env.DYLD_LIBRARY_PATH = [libDir, ...paths].join(':')
+        }
+        return
+    }
+
+    if (process.platform === 'linux') {
+        const current = process.env.LD_LIBRARY_PATH || ''
+        const paths = current.split(':').filter(Boolean)
+        if (!paths.includes(libDir)) {
+            process.env.LD_LIBRARY_PATH = [libDir, ...paths].join(':')
+        }
+    }
+}
+
+function prepareSherpaRuntimeEnv(): void {
+    const platform = process.platform === 'win32' ? 'win' : process.platform
+    const platformPkg = `sherpa-onnx-${platform}-${process.arch}`
+    const resourcesPath = (process as any).resourcesPath as string | undefined
+
+    const candidates = [
+        // Dev: /project/dist-electron -> /project/node_modules/...
+        join(__dirname, '..', 'node_modules', platformPkg),
+        // Fallback for alternate layouts
+        join(__dirname, 'node_modules', platformPkg),
+        join(process.cwd(), 'node_modules', platformPkg),
+        // Packaged app: Resources/app.asar.unpacked/node_modules/...
+        resourcesPath ? join(resourcesPath, 'app.asar.unpacked', 'node_modules', platformPkg) : ''
+    ].filter(Boolean)
+
+    for (const dir of candidates) {
+        appendLibrarySearchPath(dir)
+    }
 }
 
 // 语言标记映射
@@ -95,22 +138,60 @@ function isLanguageAllowed(result: any, allowedLanguages: string[]): boolean {
 }
 
 async function run() {
-    if (!parentPort) {
-        return;
+    const isForkProcess = !parentPort
+    const emit = (msg: any) => {
+        if (parentPort) {
+            parentPort.postMessage(msg)
+            return
+        }
+        if (typeof process.send === 'function') {
+            process.send(msg)
+        }
+    }
+
+    const normalizeBuffer = (data: WorkerParams['wavData']): Buffer => {
+        if (Buffer.isBuffer(data)) return data
+        if (data instanceof Uint8Array) return Buffer.from(data)
+        if (data && typeof data === 'object' && (data as any).type === 'Buffer' && Array.isArray((data as any).data)) {
+            return Buffer.from((data as any).data)
+        }
+        return Buffer.alloc(0)
+    }
+
+    const readParams = async (): Promise<WorkerParams | null> => {
+        if (parentPort) {
+            return workerData as WorkerParams
+        }
+
+        return new Promise((resolve) => {
+            let settled = false
+            const finish = (value: WorkerParams | null) => {
+                if (settled) return
+                settled = true
+                resolve(value)
+            }
+            process.once('message', (msg) => finish(msg as WorkerParams))
+            process.once('disconnect', () => finish(null))
+        })
     }
 
     try {
+        prepareSherpaRuntimeEnv()
+        const params = await readParams()
+        if (!params) return
+
         // 动态加载以捕获可能的加载错误（如 C++ 运行库缺失等）
         let sherpa: any;
         try {
             sherpa = require('sherpa-onnx-node');
         } catch (requireError) {
-            parentPort.postMessage({ type: 'error', error: 'Failed to load speech engine: ' + String(requireError) });
+            emit({ type: 'error', error: 'Failed to load speech engine: ' + String(requireError) });
+            if (isForkProcess) process.exit(1)
             return;
         }
 
-        const { modelPath, tokensPath, wavData: rawWavData, sampleRate, languages } = workerData as WorkerParams
-        const wavData = Buffer.from(rawWavData);
+        const { modelPath, tokensPath, wavData: rawWavData, sampleRate, languages } = params
+        const wavData = normalizeBuffer(rawWavData);
         // 确保有有效的语言列表，默认只允许中文
         let allowedLanguages = languages || ['zh']
         if (allowedLanguages.length === 0) {
@@ -151,16 +232,18 @@ async function run() {
         if (isLanguageAllowed(result, allowedLanguages)) {
             const processedText = richTranscribePostProcess(result.text)
             
-            parentPort.postMessage({ type: 'final', text: processedText })
+            emit({ type: 'final', text: processedText })
+            if (isForkProcess) process.exit(0)
         } else {
             
-            parentPort.postMessage({ type: 'final', text: '' })
+            emit({ type: 'final', text: '' })
+            if (isForkProcess) process.exit(0)
         }
 
     } catch (error) {
-        parentPort.postMessage({ type: 'error', error: String(error) })
+        emit({ type: 'error', error: String(error) })
+        if (isForkProcess) process.exit(1)
     }
 }
 
 run();
-
