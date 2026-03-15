@@ -39,7 +39,6 @@ interface Contact {
     lastSessionTimestamp?: number
     postCount?: number
     postCountStatus?: ContactPostCountStatus
-    isCurrentUser?: boolean
 }
 
 interface SidebarUserProfile {
@@ -194,15 +193,11 @@ export default function SnsPage() {
     }, [contacts])
     useEffect(() => {
         const contactLookup = new Set(contacts.map((contact) => contact.username))
-        const currentUserUsername = normalizeAccountId(currentUserProfile.wxid)
-        if (currentUserUsername) {
-            contactLookup.add(currentUserUsername)
-        }
         setSelectedContactUsernames((prev) => {
             const next = prev.filter((username) => contactLookup.has(username))
             return next.length === prev.length ? prev : next
         })
-    }, [contacts, currentUserProfile.wxid])
+    }, [contacts])
     useEffect(() => {
         overviewStatsRef.current = overviewStats
     }, [overviewStats])
@@ -390,88 +385,27 @@ export default function SnsPage() {
         }) || null
     }, [contacts, currentUserProfile.alias, currentUserProfile.displayName, currentUserProfile.wxid])
 
-    const currentUserFilterContact = useMemo<Contact | null>(() => {
-        const normalizedWxid = normalizeAccountId(currentUserProfile.wxid)
-        const fallbackDisplayName = String(
-            resolvedCurrentUserContact?.displayName
-            || currentUserProfile.displayName
-            || '我'
-        ).trim()
-        const fallbackAvatarUrl = resolvedCurrentUserContact?.avatarUrl || currentUserProfile.avatarUrl
-        const fallbackPostCount = typeof resolvedCurrentUserContact?.postCount === 'number'
-            ? normalizePostCount(resolvedCurrentUserContact.postCount)
-            : (typeof overviewStats.myPosts === 'number' && Number.isFinite(overviewStats.myPosts)
-                ? Math.max(0, Math.floor(overviewStats.myPosts))
-                : undefined)
-        const fallbackPostStatus: ContactPostCountStatus = resolvedCurrentUserContact
-            ? (resolvedCurrentUserContact.postCountStatus || (fallbackPostCount !== undefined ? 'ready' : 'idle'))
-            : (fallbackPostCount !== undefined
-                ? 'ready'
-                : (contactsLoading || overviewStatsStatus === 'loading' ? 'loading' : 'idle'))
-
-        if (resolvedCurrentUserContact) {
-            return {
-                ...resolvedCurrentUserContact,
-                displayName: resolvedCurrentUserContact.displayName || fallbackDisplayName,
-                avatarUrl: resolvedCurrentUserContact.avatarUrl || fallbackAvatarUrl,
-                postCount: typeof resolvedCurrentUserContact.postCount === 'number'
-                    ? normalizePostCount(resolvedCurrentUserContact.postCount)
-                    : fallbackPostCount,
-                postCountStatus: resolvedCurrentUserContact.postCountStatus || fallbackPostStatus,
-                isCurrentUser: true
-            }
-        }
-
-        if (!normalizedWxid) return null
-
-        return {
-            username: normalizedWxid,
-            displayName: fallbackDisplayName || normalizedWxid,
-            avatarUrl: fallbackAvatarUrl,
-            type: 'sns_only',
-            postCount: fallbackPostCount,
-            postCountStatus: fallbackPostStatus,
-            isCurrentUser: true
-        }
-    }, [
-        contactsLoading,
-        currentUserProfile.avatarUrl,
-        currentUserProfile.displayName,
-        currentUserProfile.wxid,
-        normalizePostCount,
-        overviewStats.myPosts,
-        overviewStatsStatus,
-        resolvedCurrentUserContact
-    ])
-
-    const filterableContacts = useMemo(() => {
-        if (!currentUserFilterContact) return contacts
-        const currentUserKey = normalizeAccountId(currentUserFilterContact.username)
-        const otherContacts = contacts.filter((contact) => normalizeAccountId(contact.username) !== currentUserKey)
-        return [currentUserFilterContact, ...otherContacts]
-    }, [contacts, currentUserFilterContact])
-
     const currentTimelineTargetContact = useMemo(() => {
         const normalizedTargetUsername = String(authorTimelineTarget?.username || '').trim()
         if (!normalizedTargetUsername) return null
-        return filterableContacts.find((contact) => contact.username === normalizedTargetUsername) || null
-    }, [authorTimelineTarget, filterableContacts])
+        return contacts.find((contact) => contact.username === normalizedTargetUsername) || null
+    }, [authorTimelineTarget, contacts])
 
     const exportSelectedContactsSummary = useMemo(() => {
         if (exportScope.kind !== 'selected' || exportScope.usernames.length === 0) return ''
-        const contactMap = new Map(filterableContacts.map((contact) => [contact.username, contact]))
+        const contactMap = new Map(contacts.map((contact) => [contact.username, contact]))
         const names = exportScope.usernames.map((username) => contactMap.get(username)?.displayName || username)
         if (names.length <= 2) return names.join('、')
         return `${names.slice(0, 2).join('、')} 等 ${names.length} 位联系人`
-    }, [exportScope, filterableContacts])
+    }, [contacts, exportScope])
 
     const selectedFeedContactsSummary = useMemo(() => {
         if (selectedContactUsernames.length === 0) return ''
-        const contactMap = new Map(filterableContacts.map((contact) => [contact.username, contact]))
+        const contactMap = new Map(contacts.map((contact) => [contact.username, contact]))
         const names = selectedContactUsernames.map((username) => contactMap.get(username)?.displayName || username)
         if (names.length <= 2) return names.join('、')
         return `${names.slice(0, 2).join('、')} 等 ${names.length} 人`
-    }, [filterableContacts, selectedContactUsernames])
+    }, [contacts, selectedContactUsernames])
 
     const selectedContactUsernameSet = useMemo(() => (
         new Set(selectedContactUsernames.map((username) => normalizeAccountId(username)))
@@ -483,31 +417,30 @@ export default function SnsPage() {
     }, [posts, selectedContactUsernameSet])
 
     const myTimelineCount = useMemo(() => {
-        if (typeof currentUserFilterContact?.postCount === 'number') {
-            return normalizePostCount(currentUserFilterContact.postCount)
+        if (resolvedCurrentUserContact?.postCountStatus === 'ready' && typeof resolvedCurrentUserContact.postCount === 'number') {
+            return normalizePostCount(resolvedCurrentUserContact.postCount)
         }
         return null
-    }, [currentUserFilterContact, normalizePostCount])
+    }, [normalizePostCount, resolvedCurrentUserContact])
 
     const myTimelineCountLoading = Boolean(
-        currentUserFilterContact
-            ? currentUserFilterContact.postCountStatus === 'loading'
+        resolvedCurrentUserContact
+            ? resolvedCurrentUserContact.postCountStatus !== 'ready'
             : overviewStatsStatus === 'loading' || contactsLoading
     )
-    const currentUserTimelineUsername = String(currentUserFilterContact?.username || '').trim()
 
     const canStartExport = Boolean(exportFolder) && !isExporting && (
         exportScope.kind === 'all' || exportScope.usernames.length > 0
     )
 
     const openCurrentUserTimeline = useCallback(() => {
-        if (!currentUserFilterContact) return
+        if (!resolvedCurrentUserContact) return
         setAuthorTimelineTarget({
-            username: currentUserFilterContact.username,
-            displayName: currentUserFilterContact.displayName || currentUserProfile.displayName || currentUserFilterContact.username,
-            avatarUrl: currentUserFilterContact.avatarUrl || currentUserProfile.avatarUrl
+            username: resolvedCurrentUserContact.username,
+            displayName: resolvedCurrentUserContact.displayName || currentUserProfile.displayName || resolvedCurrentUserContact.username,
+            avatarUrl: resolvedCurrentUserContact.avatarUrl || currentUserProfile.avatarUrl
         })
-    }, [currentUserFilterContact, currentUserProfile.avatarUrl, currentUserProfile.displayName])
+    }, [currentUserProfile.avatarUrl, currentUserProfile.displayName, resolvedCurrentUserContact])
 
     const isDefaultViewNow = useCallback(() => {
         return (
@@ -1330,12 +1263,12 @@ export default function SnsPage() {
                                 <span className="feed-stats-divider" aria-hidden="true">｜</span>
                                 <button
                                     type="button"
-                                    className={`feed-my-timeline-entry ${currentUserFilterContact ? 'ready' : ''} ${myTimelineCountLoading ? 'loading' : ''}`}
+                                    className={`feed-my-timeline-entry ${resolvedCurrentUserContact ? 'ready' : ''} ${myTimelineCountLoading ? 'loading' : ''}`}
                                     onClick={openCurrentUserTimeline}
-                                    disabled={!currentUserFilterContact}
-                                    title={currentUserFilterContact
-                                        ? `打开${currentUserFilterContact.displayName || '我'}的朋友圈详情`
-                                        : '当前账号尚未识别，暂时无法单独筛选'}
+                                    disabled={!resolvedCurrentUserContact}
+                                    title={resolvedCurrentUserContact
+                                        ? `打开${resolvedCurrentUserContact.displayName || '我'}的朋友圈详情`
+                                        : '未在右侧联系人列表中匹配到当前账号'}
                                 >
                                     <span className="feed-my-timeline-label">我的朋友圈</span>
                                     <span className="feed-my-timeline-count">
@@ -1554,7 +1487,7 @@ export default function SnsPage() {
                             ? `${overviewStats.totalFriends} 位好友`
                             : undefined
                 }
-                contacts={filterableContacts}
+                contacts={contacts}
                 contactSearch={contactSearch}
                 setContactSearch={setContactSearch}
                 loading={contactsLoading}
@@ -1571,12 +1504,12 @@ export default function SnsPage() {
             <ContactSnsTimelineDialog
                 target={authorTimelineTarget}
                 onClose={closeAuthorTimeline}
-                initialTotalPosts={authorTimelineTarget?.username === currentUserTimelineUsername
+                initialTotalPosts={authorTimelineTarget?.username === resolvedCurrentUserContact?.username
                     ? myTimelineCount
                     : currentTimelineTargetContact?.postCountStatus === 'ready'
                         ? normalizePostCount(currentTimelineTargetContact.postCount)
                         : null}
-                initialTotalPostsLoading={Boolean(authorTimelineTarget?.username === currentUserTimelineUsername
+                initialTotalPostsLoading={Boolean(authorTimelineTarget?.username === resolvedCurrentUserContact?.username
                     ? myTimelineCount === null && myTimelineCountLoading
                     : currentTimelineTargetContact?.postCountStatus === 'loading')}
                 isProtected={triggerInstalled === true}

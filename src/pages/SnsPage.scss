@@ -1295,26 +1295,6 @@
                     color: var(--text-primary);
                 }
 
-                &.is-current-user .contact-main-btn {
-                    background: color-mix(in srgb, var(--primary) 6%, var(--bg-primary));
-                    border-color: color-mix(in srgb, var(--primary) 18%, var(--border-color));
-                }
-
-                &.is-current-user.is-selected .contact-main-btn {
-                    background: rgba(var(--primary-rgb), 0.1);
-                    border-color: color-mix(in srgb, var(--primary) 30%, var(--border-color));
-                }
-
-                &.is-current-user.is-active .contact-main-btn {
-                    background: rgba(var(--primary-rgb), 0.15);
-                    border-color: color-mix(in srgb, var(--primary) 54%, var(--border-color));
-                }
-
-                &.is-current-user .contact-name {
-                    color: var(--text-primary);
-                    font-weight: 600;
-                }
-
                 .contact-select-btn {
                     width: 32px;
                     height: 32px;
@@ -1332,11 +1312,6 @@
                     &:hover {
                         background: rgba(var(--primary-rgb), 0.1);
                         color: var(--primary);
-                    }
-
-                    &:focus-visible {
-                        outline: 2px solid color-mix(in srgb, var(--primary) 72%, transparent);
-                        outline-offset: 2px;
                     }
 
                     &.checked {
@@ -1361,11 +1336,6 @@
                     &:hover {
                         background: var(--hover-bg);
                     }
-
-                    &:focus-visible {
-                        outline: 2px solid color-mix(in srgb, var(--primary) 72%, transparent);
-                        outline-offset: 2px;
-                    }
                 }
 
                 .contact-meta {
@@ -1373,45 +1343,11 @@
                     min-width: 0;
                     display: flex;
                     flex-direction: column;
-                    gap: 4px;
-
-                    .contact-name-row {
-                        display: flex;
-                        align-items: center;
-                        gap: 6px;
-                        min-width: 0;
-                    }
+                    gap: 2px;
 
                     .contact-name {
-                        display: block;
-                        flex: 1 1 auto;
-                        min-width: 0;
                         font-size: 14px;
                         color: var(--text-secondary);
-                        white-space: nowrap;
-                        overflow: hidden;
-                        text-overflow: ellipsis;
-                    }
-
-                    .contact-self-badge {
-                        flex-shrink: 0;
-                        display: inline-flex;
-                        align-items: center;
-                        justify-content: center;
-                        min-height: 18px;
-                        padding: 0 8px;
-                        border-radius: 999px;
-                        font-size: 10px;
-                        font-weight: 700;
-                        letter-spacing: 0.02em;
-                        color: var(--primary);
-                        background: rgba(var(--primary-rgb), 0.12);
-                        border: 1px solid rgba(var(--primary-rgb), 0.18);
-                    }
-
-                    .contact-subtitle {
-                        font-size: 11px;
-                        color: var(--text-tertiary);
                         white-space: nowrap;
                         overflow: hidden;
                         text-overflow: ellipsis;
@@ -1432,10 +1368,6 @@
                     color: var(--text-tertiary);
                     font-variant-numeric: tabular-nums;
                     white-space: nowrap;
-
-                    &.is-empty {
-                        letter-spacing: 0.08em;
-                    }
                 }
 
                 .contact-post-count-loading {
@@ -1819,9 +1751,8 @@
     background: var(--bg-secondary);
     border-radius: var(--sns-border-radius-lg);
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
-    width: 460px;
+    width: 480px;
     max-width: 92vw;
-    max-height: calc(100vh - 48px);
     display: flex;
     flex-direction: column;
     border: 1px solid var(--border-color);
@@ -1829,7 +1760,7 @@
     animation: slide-up-fade 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 
     .export-dialog-header {
-        padding: 14px 18px;
+        padding: 16px 20px;
         border-bottom: 1px solid var(--border-color);
         background: var(--bg-tertiary);
         display: flex;
@@ -1865,13 +1796,10 @@
     }
 
     .export-dialog-body {
-        padding: 16px 18px 18px;
+        padding: 20px;
         display: flex;
         flex-direction: column;
-        gap: 14px;
-        min-height: 0;
-        overflow-y: auto;
-        overscroll-behavior: contain;
+        gap: 18px;
     }
 }
 
@@ -1880,7 +1808,7 @@
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
-    padding: 8px 12px;
+    padding: 10px 14px;
     background: var(--bg-tertiary);
     border-radius: 8px;
     border: 1px solid var(--border-color);
@@ -1895,10 +1823,10 @@
     }
 
     .filter-tag {
-        font-size: 12px;
+        font-size: 13px;
         color: var(--text-secondary);
         background: var(--bg-primary);
-        padding: 2px 8px;
+        padding: 2px 10px;
         border-radius: 6px;
         border: 1px solid var(--border-color);
         display: flex;
@@ -1920,7 +1848,7 @@
 .export-section {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
 }
 
 .export-section-header {
@@ -1965,14 +1893,14 @@
 .export-format-options {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 8px;
+    gap: 10px;
 
     .format-option {
         display: flex;
         flex-direction: column;
         align-items: center;
         gap: 4px;
-        padding: 12px 8px;
+        padding: 14px 10px;
         border-radius: 10px;
         border: 2px solid var(--border-color);
         background: var(--bg-primary);
@@ -2496,7 +2424,7 @@
 .export-media-check-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-    gap: 6px;
+    gap: 8px;
 
     label {
         display: inline-flex;
@@ -2504,7 +2432,7 @@
         gap: 6px;
         font-size: 13px;
         color: var(--text-primary);
-        padding: 7px 9px;
+        padding: 8px 10px;
         border: 1px solid var(--border-color);
         border-radius: 8px;
         background: var(--bg-secondary);
@@ -2622,10 +2550,10 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 10px;
+    padding: 10px 12px;
     background: var(--bg-secondary);
     border-radius: 8px;
-    margin: 4px 0;
+    margin: 8px 0;
     color: var(--text-tertiary);
     font-size: 12px;
     border: 1px dashed var(--border-color);
@@ -2638,8 +2566,8 @@
 
 .export-actions {
     display: flex;
-    gap: 10px;
-    margin-top: 14px;
+    gap: 12px;
+    margin-top: 24px;
 
     button {
         flex: 1;

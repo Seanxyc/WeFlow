@@ -8,7 +8,6 @@ interface Contact {
     avatarUrl?: string
     postCount?: number
     postCountStatus?: 'idle' | 'loading' | 'ready'
-    isCurrentUser?: boolean
 }
 
 interface ContactsCountProgress {
@@ -69,7 +68,7 @@ export const SnsFilterPanel: React.FC<SnsFilterPanelProps> = ({
             return '正在加载联系人...'
         }
         if (contacts.length === 0) {
-            return '暂无可筛选联系人'
+            return '暂无好友或曾经的好友'
         }
         return '没有找到联系人'
     }
@@ -119,7 +118,7 @@ export const SnsFilterPanel: React.FC<SnsFilterPanelProps> = ({
                     <div className="contact-search-bar">
                         <input
                             type="text"
-                            placeholder="查找联系人..."
+                            placeholder="查找好友..."
                             value={contactSearch}
                             onChange={e => setContactSearch(e.target.value)}
                         />
@@ -144,26 +143,18 @@ export const SnsFilterPanel: React.FC<SnsFilterPanelProps> = ({
                     <div className="contact-list-scroll">
                         {filteredContacts.map(contact => {
                             const isPostCountReady = contact.postCountStatus === 'ready'
-                            const isPostCountLoading = contact.postCountStatus === 'loading'
                             const isSelected = selectedContactLookup.has(contact.username)
                             const isActive = activeContactUsername === contact.username
-                            const displayName = contact.displayName || (contact.isCurrentUser ? '我' : contact.username)
-                            const selectTitle = contact.isCurrentUser
-                                ? (isSelected ? '取消选择当前账号的朋友圈' : '选择当前账号的朋友圈')
-                                : (isSelected ? `取消选择 ${displayName}` : `选择 ${displayName}`)
-                            const openTitle = contact.isCurrentUser
-                                ? '查看我发的朋友圈'
-                                : `查看 ${displayName} 的朋友圈`
                             return (
                                 <div
                                     key={contact.username}
-                                    className={`contact-row${isSelected ? ' is-selected' : ''}${isActive ? ' is-active' : ''}${contact.isCurrentUser ? ' is-current-user' : ''}`}
+                                    className={`contact-row${isSelected ? ' is-selected' : ''}${isActive ? ' is-active' : ''}`}
                                 >
                                     <button
                                         type="button"
                                         className={`contact-select-btn${isSelected ? ' checked' : ''}`}
                                         onClick={() => onToggleContactSelected(contact)}
-                                        title={selectTitle}
+                                        title={isSelected ? `取消选择 ${contact.displayName}` : `选择 ${contact.displayName}`}
                                         aria-pressed={isSelected}
                                     >
                                         {isSelected ? <CheckSquare size={16} /> : <Square size={16} />}
@@ -172,28 +163,18 @@ export const SnsFilterPanel: React.FC<SnsFilterPanelProps> = ({
                                         type="button"
                                         className="contact-main-btn"
                                         onClick={() => onOpenContactTimeline(contact)}
-                                        title={openTitle}
+                                        title={`查看 ${contact.displayName} 的朋友圈`}
                                     >
-                                        <Avatar src={contact.avatarUrl} name={displayName} size={36} shape="rounded" />
+                                        <Avatar src={contact.avatarUrl} name={contact.displayName} size={36} shape="rounded" />
                                         <div className="contact-meta">
-                                            <span className="contact-name-row">
-                                                <span className="contact-name">{displayName}</span>
-                                                {contact.isCurrentUser && <span className="contact-self-badge">当前账号</span>}
-                                            </span>
-                                            {contact.isCurrentUser && (
-                                                <span className="contact-subtitle">{contact.username}</span>
-                                            )}
+                                            <span className="contact-name">{contact.displayName}</span>
                                         </div>
                                         <div className="contact-post-count-wrap">
                                             {isPostCountReady ? (
                                                 <span className="contact-post-count">{Math.max(0, Math.floor(Number(contact.postCount || 0)))}条</span>
-                                            ) : isPostCountLoading ? (
+                                            ) : (
                                                 <span className="contact-post-count-loading" title="统计中">
                                                     <Loader2 size={13} className="spinning" />
-                                                </span>
-                                            ) : (
-                                                <span className="contact-post-count is-empty" title="暂无统计">
-                                                    --
                                                 </span>
                                             )}
                                         </div>
